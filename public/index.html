@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Braidly — Debate Room</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Join overlay -->
+  <div id="join-overlay" class="overlay hidden">
+    <div class="join-card">
+      <h1>⬡ Braidly</h1>
+      <p class="sub">The team &amp; AI workspace. Enter your name to join the Debate Room.</p>
+      <form id="join-form">
+        <input id="join-name" maxlength="24" placeholder="Your name" autocomplete="off" />
+        <button type="submit">Join room</button>
+      </form>
+      <p class="hint">No account needed — this is a local workspace.</p>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand"><span class="logo">⬡</span> Braidly</div>
+    <div class="room-title">Debate Room</div>
+    <div id="status" class="status offline">join to connect</div>
+  </header>
+
+  <main>
+    <section id="chat">
+      <div id="prd-view" class="prd-view hidden"></div>
+      <div id="messages" aria-live="polite">
+        <div id="empty-state" class="empty">
+          <h2>Start the discussion</h2>
+          <p>Talk through your app idea with the team.<br>Type <strong>/ai</strong> to call Braidly for help, or <strong>/ai your question</strong> for specific guidance.</p>
+          <div id="starter-prompts" class="prompts"></div>
+        </div>
+      </div>
+      <div id="typing" class="typing hidden"></div>
+      <footer class="composer">
+        <textarea id="composer" rows="1" maxlength="4000"
+          placeholder="Message the room… (Enter to send, /ai to call Braidly)"></textarea>
+        <button id="stop" class="stop hidden" title="Stop Braidly's reply" aria-label="Stop Braidly's reply">■</button>
+        <button id="send" class="send">Send</button>
+      </footer>
+    </section>
+
+    <aside id="sidebar">
+      <div class="panel">
+        <h3>In the room</h3>
+        <ul id="members"></ul>
+        <button id="clear-chat-btn" class="clear-chat-btn">Clear Chat</button>
+      </div>
+      <div class="panel">
+        <h3>PRD Factory</h3>
+        <p>When the discussion converges, finalize to generate per-member briefs with contracts.</p>
+        <button id="finalize-btn" class="finalize-btn">Finalize Discussion</button>
+        <div id="finalize-status" class="finalize-status hidden"></div>
+      </div>
+      <div class="panel hidden" id="workspace-panel">
+        <h3>Workspace</h3>
+        <div id="module-assignment"></div>
+        <button id="coding-btn" class="coding-btn hidden">← Back to Modules</button>
+        <div id="workspace-editor" class="hidden">
+          <textarea id="code-editor" placeholder="Paste or write your code here..." rows="12"></textarea>
+          <textarea id="readme-editor" placeholder="Write a README for this module (what it does, how to use it)..." rows="5"></textarea>
+          <div class="workspace-actions">
+            <button id="submit-btn" class="submit-btn">Submit Code</button>
+            <label id="upload-btn" class="upload-btn">Upload Files
+              <input type="file" id="file-input" multiple hidden />
+            </label>
+          </div>
+          <div id="upload-area" class="upload-area">
+            <p>Drag & drop files here, or click Upload Files</p>
+            <span id="upload-status" class="submit-status hidden"></span>
+          </div>
+          <div id="file-list" class="file-list"></div>
+          <span id="submit-status" class="submit-status hidden"></span>
+        </div>
+      </div>
+      <div class="panel hidden" id="integrate-panel">
+        <h3>AI Tech Lead</h3>
+        <p>Verify modules against contracts, run tests, fix issues automatically.</p>
+        <button id="integrate-btn" class="finalize-btn">Integrate Modules</button>
+        <div id="integrate-status" class="finalize-status hidden"></div>
+      </div>
+      <div id="integration-report" class="hidden">
+        <h3>Integration Report</h3>
+        <div id="report-summary"></div>
+        <div id="report-modules"></div>
+      </div>
+      <div class="panel">
+        <h3>About</h3>
+        <p>Stage 1 — Debate Room. Stage 2 — PRD Factory. Stage 3 — Vibe Coding. Stage 4 — File Submission.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

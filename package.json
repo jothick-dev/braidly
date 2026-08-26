@@ -1,0 +1,19 @@
+{
+  "name": "braidly",
+  "version": "0.1.0",
+  "description": "Braidly — collaborative AI vibe-coding workplace. Stage 1: the Debate Room (team + AI chat).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "multer": "^2.2.0",
+    "ws": "^8.18.0"
+  }
+}

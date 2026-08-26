@@ -1,0 +1,6 @@
+# Braidly — never commit these
+node_modules/
+data/
+.env
+*.log
+.freebuff/
