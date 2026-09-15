@@ -1321,10 +1321,6 @@ Landing Page → Login/Sign Up → Dashboard (with persistent sidebar)
 
 ---
 
-*Last updated: Session 37 (2026-09-16)*
-
----
-
 ## Session 37 — Three.js Braid Hero Background
 
 **Date:** 2026-09-16
@@ -1367,6 +1363,30 @@ Landing Page → Login/Sign Up → Dashboard (with persistent sidebar)
 
 ---
 
-*Last updated: Session 37 (2026-09-16)*
+## Session 38 — Vercel + Railway Deployment Prep (2026-09-16)
+
+**Goal:** Make the project deployable to Vercel without breaking local dev.
+
+**Architecture decision — Vercel cannot host this backend:**
+- Vercel rewrites cannot proxy WebSocket upgrades (`/ws` needs a 101 handshake)
+- Function filesystem is read-only/ephemeral — breaks every `data/*` write (sessions, briefs, submissions, uploads)
+- Function timeouts would kill `/api/integrate` (120s) and `/api/finalize` (sequential LLM calls)
+
+**Split architecture:**
+- **Vercel** (free): static React UI from `ui/dist`, with `/api/*` reverse-proxied to Railway via a build-time rewrite (same-origin in the browser, no CORS)
+- **Railway** ($5/mo hobby): existing Express + WebSocket + LLM gateway monolith unchanged, WebSockets native, persistent volume mounted at `/app/data`
+
+**Changes:**
+- **`ui/vercel.ts`** (new) — programmatic Vercel config using `@vercel/config`: reads `BACKEND_URL` env var at build time for the API rewrite (`/api/:path* → $BACKEND_URL/:path*`), SPA fallback for all other routes, immutable caching for hashed `/assets/*`. Chosen over `vercel.json` because static JSON can't read env vars (Railway domain would be hardcoded)
+- **`package.json`** — added root `build` script (`cd ui && npm ci && npm run build`) for Railway's Nixpacks builder
+- **`server.js`** — `/api/config` now returns `wsUrl` (from `PUBLIC_WS_URL` env, normalized to end in `/ws`); added `app.set('trust proxy', 1)` so `req.ip` resolves real client IPs behind the Vercel/Railway proxy hops (keeps per-user rate limiting honest)
+- **`ui/src/lib/supabase.js`** — `initSupabase()` stashes `config.wsUrl` into `window.__BRAIDLY_WS__` (reuses the `/api/config` fetch it already does)
+- **`ui/src/lib/websocket.js`** — `getWsUrl()` prefers `window.__BRAIDLY_WS__` over same-origin; unset = identical behavior to before (local dev unchanged)
+
+**Verified:** build passes; `/api/config` returns `"wsUrl":null` locally and the full Railway URL with `PUBLIC_WS_URL=wss://...` set; browser end-to-end confirmed (`window.__BRAIDLY_WS__` populated from `/api/config`); app flow (landing → Try Demo → dashboard) works with clean console.
+
+**Deployment runbook** (docs/PROJECT.md §14): push to GitHub → Railway (root dir, Nixpacks, env vars, volume at `/app/data`, healthcheck `/api/health`) → Vercel (root dir `ui`, env var `BACKEND_URL`) → Supabase auth redirect URLs.
 
 ---
+
+*Last updated: Session 38 (2026-09-16)*

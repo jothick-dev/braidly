@@ -6,6 +6,9 @@ export async function initSupabase() {
   try {
     const res = await fetch('/api/config')
     const config = await res.json()
+    // Deployed setup: the API is reverse-proxied but WebSockets can't be, so the
+    // server publishes the direct wss:// URL. websocket.js reads this before connecting.
+    if (config?.wsUrl) window.__BRAIDLY_WS__ = config.wsUrl
     if (config.supabase?.url && config.supabase?.anonKey) {
       supabase = createClient(config.supabase.url, config.supabase.anonKey)
       return supabase

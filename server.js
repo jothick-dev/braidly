@@ -59,6 +59,10 @@ const GENERATION_TIMEOUT_MS = 90000;
 // ---------------- HTTP ----------------
 const app = express();
 app.disable('x-powered-by');
+// Behind one proxy hop (Railway edge / Vercel rewrite proxy). Makes req.ip the
+// real client IP from X-Forwarded-For so the REST rate limiter buckets per user
+// instead of lumping everyone behind the proxy into one bucket.
+app.set('trust proxy', 1);
 app.use(securityHeaders); // A8/A9: CSP + headers on everything
 app.use(express.json({ limit: '50kb' })); // A4: bounded bodies
 app.use('/api/', rateLimiter({ windowMs: 60000, max: 300 })); // A10: REST rate limit
@@ -73,8 +77,19 @@ app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // ---- Supabase config endpoint (safe: anon key only) ----
 app.get('/api/config', (req, res) => {
+  // PUBLIC_WS_URL: where browsers should open the WebSocket when the API is
+  // reverse-proxied (e.g. Vercel serves the UI and rewrites /api to Railway —
+  // but Vercel rewrites can't upgrade WebSockets, so the client connects
+  // directly). Accepts wss://host or wss://host/ws; unset = same-origin (local dev).
+  let wsUrl = null;
+  const rawWs = process.env.PUBLIC_WS_URL;
+  if (rawWs) {
+    const trimmed = rawWs.trim().replace(/\/+$/, '');
+    wsUrl = trimmed.endsWith('/ws') ? trimmed : `${trimmed}/ws`;
+  }
   res.json({
     supabase: isSupabaseConfigured() ? { url: getSupabaseUrl(), anonKey: getAnonKey() } : null,
+    wsUrl,
   });
 });
 

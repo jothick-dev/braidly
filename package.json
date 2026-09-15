@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build:ui": "cd ui && npm run build"
+    "build:ui": "cd ui && npm run build",
+    "build": "cd ui && npm ci && npm run build"
   },
   "engines": {
     "node": ">=22"

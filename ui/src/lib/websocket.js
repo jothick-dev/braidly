@@ -6,6 +6,9 @@ let connectionStatus = 'disconnected' // connected | reconnecting | disconnected
 let currentSessionId = null
 
 function getWsUrl() {
+  // Deployed: /api/config publishes the direct WebSocket URL (Vercel proxies /api
+  // but cannot proxy WebSocket upgrades). Unset = same-origin (local dev).
+  if (typeof window !== 'undefined' && window.__BRAIDLY_WS__) return window.__BRAIDLY_WS__
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${proto}//${window.location.host}/ws`
 }

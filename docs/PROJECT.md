@@ -1,7 +1,7 @@
 # Braidly — Collaborative AI Vibe-Coding Workplace
 
 > **Living document.** Read this file at the start of every session to pick up where we left off.
-> Last updated: Session 37 (2026-09-16)
+> Last updated: Session 38 (2026-09-16)
 
 ---
 
@@ -402,3 +402,47 @@ vortex, then braid into a thick twisted cable with traveling energy sparks.
 fallback (static gradient, no canvas), lazy-loaded via React.lazy.
 
 **Props:** strandCount, palette, speed — trivially tweakable without touching render logic.
+
+## 14. Deployment Architecture: Vercel + Railway (Session 38)
+
+Vercel **cannot** host the Braidly backend: its rewrites can't proxy WebSocket
+upgrades (`/ws`), its function filesystem is read-only/ephemeral (breaks every
+`data/*` write), and function timeouts would kill `/api/integrate` (120s) and
+`/api/finalize` (sequential LLM calls). So the app deploys as a split:
+
+- **Vercel** (free) — static React UI built from `ui/`; `/api/*` reverse-proxied
+  to Railway via a build-time rewrite so calls stay same-origin (no CORS).
+  Config lives in `ui/vercel.ts` (programmatic, uses `@vercel/config`) because
+  static `vercel.json` cannot read env vars — the Railway URL must come from the
+  `BACKEND_URL` env var set in Vercel project settings.
+- **Railway** (hobby) — the existing Express + WebSocket + LLM-gateway monolith,
+  essentially unchanged. WebSockets work natively; a persistent volume mounted
+  at `/app/data` keeps sessions/briefs/submissions/uploads across deploys.
+- **WebSocket routing** — Vercel can't proxy the WS upgrade, so the client
+  connects directly to `wss://<railway>/ws`. The backend publishes that URL via
+  `/api/config` (`wsUrl`, from the `PUBLIC_WS_URL` env var, normalized to end in
+  `/ws`); `ui/src/lib/websocket.js` prefers it over same-origin. Unset →
+  same-origin, so local dev is byte-for-byte unchanged.
+- **Proxies** — `app.set('trust proxy', 1)` makes `req.ip` resolve real client
+  IPs behind the Vercel/Railway hops so per-IP rate limiting stays honest.
+
+**Deploy runbook:**
+1. Push to GitHub.
+2. Railway → New Project → deploy from repo (root = repo root, Nixpacks;
+   `npm run build` then `npm start`, binds `process.env.PORT`).
+3. Railway env vars: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`,
+   `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `NODE_VERSION=22`,
+   `PUBLIC_WS_URL=wss://<railway-domain>` (do NOT set `PORT`/`BRAIDLY_PORT`).
+4. Railway → Volume → mount at `/app/data`; healthcheck path `/api/health`;
+   Networking → Generate Domain (this domain feeds steps 3 and 5).
+5. Vercel → import same repo → Root Directory `ui` → env var
+   `BACKEND_URL=https://<railway-domain>` → deploy.
+6. Supabase → Authentication → URL Configuration → add the Vercel (and Railway)
+   domains to Site URL / Redirect URLs.
+7. Smoke test: `curl https://<vercel>/api/health`; landing renders; WS connects
+   to `wss://<railway>/ws` (Network tab, status 101); guest chat round-trip;
+   share link auto-join from an incognito window; finalize + upload; redeploy
+   Railway and confirm `data/` survives.
+
+**Local dev stays exactly as before** — `node server.js` + `npm run build:ui`,
+same-origin, no env vars needed.
