@@ -1,8 +1,10 @@
 // server.js — Braidly Stage 1: the Debate Room (real-time team + AI chat).
 // Security posture per GOVERNANCE.md A-rules; persistence per TECH-SPEC §4.
-require('dotenv').config();
-
 const path = require('path');
+// Load .env from THIS script's folder, not the current working directory.
+// Previously `dotenv.config()` defaulted to process.cwd(), so starting the
+// server from another folder silently ran with no Supabase/AI keys.
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const http = require('http');
 const fs = require('fs');
 const express = require('express');
@@ -24,6 +26,8 @@ function sanitizeModuleName(name) {
   return name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9_-]/g, '');
 }
 const { createStore } = require('./lib/store');
+const { serverClient: supabase, verifyToken, clientForToken, getAnonKey, getSupabaseUrl, isConfigured: isSupabaseConfigured } = require('./lib/supabase');
+const { requireAuth, optionalAuth } = require('./lib/auth');
 const gateway = require('./llm/gateway');
 
 // ---- Multer config for file uploads ----
@@ -43,6 +47,10 @@ const upload = multer({
 });
 
 // BRAIDLY_PORT wins; falls back to PORT (the host environment may set PORT=0); else 3000.
+console.log('[env] SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'NOT SET');
+console.log('[env] SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'SET' : 'NOT SET');
+console.log('[env] SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'NOT SET');
+
 const PORT = Number(process.env.BRAIDLY_PORT || process.env.PORT) || 3000;
 const MAX_HISTORY = Number(process.env.MAX_HISTORY_MESSAGES || 20);
 const HEARTBEAT_MS = 30000;
@@ -54,16 +62,211 @@ app.disable('x-powered-by');
 app.use(securityHeaders); // A8/A9: CSP + headers on everything
 app.use(express.json({ limit: '50kb' })); // A4: bounded bodies
 app.use('/api/', rateLimiter({ windowMs: 60000, max: 300 })); // A10: REST rate limit
-app.use(express.static(path.join(__dirname, 'public')));
+// React UI (built from ui/) is the face of the app; public/ kept for legacy assets.
+const UI_DIST = path.join(__dirname, 'ui', 'dist');
+const UI_BUILT = fs.existsSync(path.join(UI_DIST, 'index.html'));
+if (!UI_BUILT) {
+  console.warn('[ui] ui/dist not built — run `npm run build:ui`. Serving the legacy vanilla UI from public/ instead.');
+}
+if (UI_BUILT) app.use(express.static(UI_DIST, { index: false }));
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+
+// ---- Supabase config endpoint (safe: anon key only) ----
+app.get('/api/config', (req, res) => {
+  res.json({
+    supabase: isSupabaseConfigured() ? { url: getSupabaseUrl(), anonKey: getAnonKey() } : null,
+  });
+});
+
+// Landing page at root, app at /app — React UI when built, legacy vanilla UI otherwise
+app.get('/', (req, res) => {
+  res.sendFile(UI_BUILT ? path.join(UI_DIST, 'index.html') : path.join(__dirname, 'public', 'landing.html'));
+});
+
+app.get('/app', (req, res) => {
+  res.sendFile(UI_BUILT ? path.join(UI_DIST, 'index.html') : path.join(__dirname, 'public', 'index.html'));
+});
 
 const store = createStore(path.join(__dirname, 'data'));
+
+// ---- Session management ----
+const sessionsDir = path.join(__dirname, 'data', 'sessions');
+if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir, { recursive: true });
+
+function getSessionsIndex() {
+  const indexPath = path.join(sessionsDir, 'index.json');
+  if (!fs.existsSync(indexPath)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+  } catch { return []; }
+}
+
+function saveSessionsIndex(sessions) {
+  fs.writeFileSync(path.join(sessionsDir, 'index.json'), JSON.stringify(sessions, null, 2));
+}
+
+// ---- Auth endpoints (Supabase) ----
+// Get current user from token
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({
+    user: {
+      id: req.user.id,
+      email: req.user.email,
+      name: req.user.user_metadata?.display_name || req.user.email?.split('@')[0] || 'User',
+    }
+  });
+});
+
+// List user's sessions (Supabase or local fallback)
+app.get('/api/sessions', optionalAuth, async (req, res) => {
+  try {
+    // If not authenticated, return empty (landing page before login)
+    if (!req.user) {
+      return res.json({ sessions: [] });
+    }
+    // Try Supabase first
+    if (isSupabaseConfigured() && supabase) {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('user_id', req.user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return res.json({ sessions: (data || []).map(s => ({
+        id: s.id, title: s.title, members: s.member_names || [],
+        messageCount: s.message_count, createdAt: new Date(s.created_at).getTime(),
+      })) });
+    }
+    // Fallback: local files
+    const sessions = getSessionsIndex();
+    res.json({ sessions });
+  } catch (err) {
+    console.error('[sessions]', err.message);
+    res.json({ sessions: [] });
+  }
+});
+
+// Create a new session
+app.post('/api/sessions', optionalAuth, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required to create sessions' });
+    }
+    const { title } = req.body || {};
+    if (isSupabaseConfigured() && supabase) {
+      const { data, error } = await supabase
+        .from('sessions')
+        .insert({
+          user_id: req.user.id,
+          title: title || 'New Session',
+          status: 'active',
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return res.json({ session: { id: data.id, title: data.title, createdAt: new Date(data.created_at).getTime() } });
+    }
+    // Fallback: local files
+    const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const meta = { id: sessionId, title: title || 'New Session', user_id: req.user.id, createdAt: Date.now() };
+    const sessionDir = path.join(sessionsDir, sessionId);
+    if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(path.join(sessionDir, 'meta.json'), JSON.stringify(meta, null, 2));
+    const sessions = getSessionsIndex();
+    sessions.push(meta);
+    saveSessionsIndex(sessions);
+    res.json({ session: meta });
+  } catch (err) {
+    console.error('[session:create]', err.message);
+    res.status(500).json({ error: 'Failed to create session' });
+  }
+});
+
+// Get a specific session
+app.get('/api/sessions/:id', optionalAuth, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const sessionId = req.params.id;
+    if (isSupabaseConfigured() && supabase) {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .eq('user_id', req.user.id)
+        .single();
+      if (error || !data) return res.status(404).json({ error: 'Session not found' });
+      return res.json({
+        id: data.id, title: data.title, members: data.member_names || [],
+        messageCount: data.message_count, createdAt: new Date(data.created_at).getTime(),
+      });
+    }
+    // Fallback: local files
+    const sessionDir = path.join(sessionsDir, sessionId);
+    if (!fs.existsSync(sessionDir)) return res.status(404).json({ error: 'Session not found' });
+    const metaPath = path.join(sessionDir, 'meta.json');
+    const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) : {};
+    res.json(meta);
+  } catch (err) {
+    console.error('[session]', err.message);
+    res.status(404).json({ error: 'Session not found' });
+  }
+});
+
+app.get('/api/sessions/:id/messages', optionalAuth, async (req, res) => {
+  try {
+    const sessionId = req.params.id;
+    const sessionDir = path.join(sessionsDir, sessionId);
+    const msgsFile = path.join(sessionDir, 'messages.json');
+    if (!fs.existsSync(msgsFile)) return res.json({ messages: [] });
+    const messages = JSON.parse(fs.readFileSync(msgsFile, 'utf8'));
+    res.json({ messages });
+  } catch (err) {
+    res.json({ messages: [] });
+  }
+});
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/messages', (req, res) => res.json({ messages: store.getMessages() }));
 
-// ---- Clear Chat: wipe messages, briefs, submissions, reports ----
+// ---- Clear Chat: archive current session then wipe messages, briefs, submissions, reports ----
 app.post('/api/clear-chat', async (req, res) => {
   try {
+    // Archive current session if it has messages
+    const currentMessages = store.getMessages();
+    if (currentMessages.length > 0 && req.body && req.body.sessionId) {
+      const sessionId = req.body.sessionId;
+      const sessionDir = path.join(sessionsDir, sessionId);
+      if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+      fs.writeFileSync(path.join(sessionDir, 'messages.json'), JSON.stringify(currentMessages, null, 2));
+      // Copy briefs if they exist
+      const briefsDir = path.join(__dirname, 'data', 'briefs');
+      if (fs.existsSync(briefsDir)) {
+        const destBriefs = path.join(sessionDir, 'briefs');
+        if (!fs.existsSync(destBriefs)) fs.mkdirSync(destBriefs, { recursive: true });
+        for (const f of fs.readdirSync(briefsDir)) {
+          fs.copyFileSync(path.join(briefsDir, f), path.join(destBriefs, f));
+        }
+      }
+      // Save session metadata
+      const firstHuman = currentMessages.find(m => m.role === 'human');
+      const meta = {
+        id: sessionId,
+        title: firstHuman ? firstHuman.text.slice(0, 80) : 'Untitled Session',
+        members: [...new Set(currentMessages.filter(m => m.sender).map(m => m.sender))],
+        messageCount: currentMessages.length,
+        createdAt: Date.now(),
+        archivedAt: Date.now(),
+      };
+      fs.writeFileSync(path.join(sessionDir, 'meta.json'), JSON.stringify(meta, null, 2));
+      // Update sessions index
+      const sessions = getSessionsIndex();
+      sessions.push(meta);
+      saveSessionsIndex(sessions);
+      console.log(`[clear-chat] Archived session: ${sessionId} (${currentMessages.length} messages)`);
+    }
+
     // Clear messages (both in-memory and on disk)
     await store.clear();
 
@@ -100,7 +303,8 @@ app.post('/api/clear-chat', async (req, res) => {
     broadcast({ type: 'system.notice', text: 'Chat has been cleared. Starting fresh!' });
 
     console.log('[clear-chat] All data cleared');
-    res.json({ ok: true });
+    const newSessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    res.json({ ok: true, newSessionId });
   } catch (err) {
     console.error('[clear-chat]', err.message);
     res.status(500).json({ error: 'Clear failed: ' + err.message });
@@ -425,6 +629,14 @@ app.get('/api/contract/:module', (req, res) => {
   }
 });
 
+// SPA fallback: any non-API GET serves the React app (client-side views)
+app.use((req, res, next) => {
+  if (!UI_BUILT) return next();
+  if (req.method !== 'GET') return next();
+  if (req.path.startsWith('/api/') || req.path.startsWith('/ws')) return next();
+  res.sendFile(path.join(UI_DIST, 'index.html'));
+});
+
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 app.use(errorHandler); // A6: generic errors to client, details to log
 
@@ -433,12 +645,12 @@ const server = http.createServer(app);
 // ---------------- WebSocket ----------------
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 64 * 1024 }); // bounded frames
 
-const members = new Map(); // id -> { id, name, color, online, ws, hits, violations }
+const members = new Map(); // id -> { id, name, color, online, ws, hits, violations, sessionId }
 
-function broadcast(obj) {
+function broadcast(obj, sessionId) {
   const data = JSON.stringify(obj);
   for (const m of members.values()) {
-    if (m.online && m.ws.readyState === 1) m.ws.send(data);
+    if (m.online && m.ws.readyState === 1 && (!sessionId || m.sessionId === sessionId)) m.ws.send(data);
   }
 }
 
@@ -446,11 +658,11 @@ function sendTo(ws, obj) {
   if (ws.readyState === 1) ws.send(JSON.stringify(obj));
 }
 
-function presenceUpdate() {
+function presenceUpdate(sessionId) {
   broadcast({
     type: 'presence.update',
-    members: [...members.values()].map(({ id, name, color, online }) => ({ id, name, color, online })),
-  });
+    members: [...members.values()].filter(m => !sessionId || m.sessionId === sessionId).map(({ id, name, color, online }) => ({ id, name, color, online })),
+  }, sessionId);
 }
 
 // ---------------- AI facilitator ----------------
@@ -523,6 +735,7 @@ wss.on('connection', (ws) => {
     ws,
     hits: [],
     violations: 0,
+    sessionId: null,
   };
   members.set(member.id, member);
   ws.isAlive = true;
@@ -543,6 +756,23 @@ wss.on('connection', (ws) => {
     }
 
     switch (payload.type) {
+      case 'session.join': {
+        const name = sanitizeName(payload.name);
+        if (!name) return sendTo(ws, { type: 'system.notice', text: 'Invalid name.' });
+        if (member.name) return;
+        member.name = name;
+        member.sessionId = payload.sessionId || null;
+        if (member.sessionId) {
+          const sd = path.join(sessionsDir, member.sessionId);
+          const mf = path.join(sd, 'messages.json');
+          let em = [];
+          if (fs.existsSync(mf)) { try { em = JSON.parse(fs.readFileSync(mf, 'utf8')); } catch(e) {} }
+          sendTo(ws, { type: 'session.history', messages: em });
+        }
+        broadcast({ type: 'system.notice', text: name+' joined the room.' }, member.sessionId);
+        presenceUpdate(member.sessionId);
+        break;
+      }
       case 'presence.join': {
         const name = sanitizeName(payload.name);
         if (!name) return sendTo(ws, { type: 'system.notice', text: 'Invalid name.' });
@@ -624,8 +854,8 @@ wss.on('connection', (ws) => {
     member.online = false;
     members.delete(member.id);
     if (member.name) {
-      broadcast({ type: 'system.notice', text: `${member.name} left the room.` });
-      presenceUpdate();
+      broadcast({ type: 'system.notice', text: `${member.name} left the room.` }, member.sessionId);
+      presenceUpdate(member.sessionId);
     }
   });
 

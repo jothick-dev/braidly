@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #14171C;
+  --color-ink-light: #1C2028;
+  --color-surface: #1C2028;
+  --color-surface-hover: #252A34;
+  --color-border: #2A2F3A;
+  --color-text: #E8E6E1;
+  --color-text-dim: #8B8D94;
+  --color-accent: #F2B84B;
+  --color-ai: #6C8EF5;
+  --color-green: #4ADE80;
+  --color-red: #F87171;
+  --color-amber: #FBBF24;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+/* Base styles — body is transparent so Three.js canvas can show through on landing */
+body {
+  background-color: transparent;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+/* App-level background — applied by App.jsx, sits above the canvas */
+.app-bg {
+  background-color: var(--color-ink);
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-dim); }
+
+/* Index card rotation for PRD showcase */
+.index-card {
+  transform: rotate(-1.2deg);
+  transition: transform 0.2s ease;
+}
+.index-card:hover {
+  transform: rotate(0deg) scale(1.01);
+}
+
+/* Connection pill animation */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Message bubble tails */
+.bubble-ai {
+  border-left: 3px solid var(--color-ai);
+}
+.bubble-human {
+  border-left: 3px solid transparent;
+}

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Braidly — Team AI Workspace</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="landing-body">
+
+  <div class="landing-container">
+    <!-- Hero Section -->
+    <header class="landing-hero">
+      <div class="landing-logo">⬡</div>
+      <h1>Braidly</h1>
+      <p class="landing-tagline">The AI-powered team workspace for turning ideas into software.</p>
+      <div class="landing-stages">
+        <span class="stage-pill">1 Debate</span>
+        <span class="stage-arrow">→</span>
+        <span class="stage-pill">2 PRD</span>
+        <span class="stage-arrow">→</span>
+        <span class="stage-pill">3 Code</span>
+        <span class="stage-arrow">→</span>
+        <span class="stage-pill">4 Submit</span>
+        <span class="stage-arrow">→</span>
+        <span class="stage-pill">5 Integrate</span>
+      </div>
+    </header>
+
+    <!-- Auth Section (shown when not logged in) -->
+    <section class="landing-action" id="auth-section">
+      <div class="landing-card">
+        <!-- Auth Forms -->
+        <div id="auth-forms">
+          <div id="login-form-container">
+            <h2>Sign In</h2>
+            <form id="login-form">
+              <input type="email" id="login-email" placeholder="Email" required autocomplete="email" />
+              <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password" />
+              <button type="submit" id="login-btn" class="btn-primary">Sign In</button>
+            </form>
+            <p class="auth-toggle">Don't have an account? <a href="#" id="show-signup">Sign up</a></p>
+            <div id="login-error" class="auth-error hidden"></div>
+          </div>
+          <div id="signup-form-container" class="hidden">
+            <h2>Create Account</h2>
+            <form id="signup-form">
+              <input type="text" id="signup-name" placeholder="Your display name" maxlength="24" required />
+              <input type="email" id="signup-email" placeholder="Email" required autocomplete="email" />
+              <input type="password" id="signup-password" placeholder="Password (min 6 chars)" required minlength="6" autocomplete="new-password" />
+              <button type="submit" id="signup-btn" class="btn-primary">Create Account</button>
+            </form>
+            <p class="auth-toggle">Already have an account? <a href="#" id="show-login">Sign in</a></p>
+            <div id="signup-error" class="auth-error hidden"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dashboard Section (shown when logged in) -->
+    <section class="landing-action hidden" id="dashboard-section">
+      <div class="landing-card">
+        <div class="dashboard-header">
+          <div class="user-info">
+            <div class="user-avatar" id="user-avatar">U</div>
+            <div>
+              <h2 id="user-name">User</h2>
+              <p class="user-email" id="user-email">user@example.com</p>
+            </div>
+          </div>
+          <button id="signout-btn" class="btn-outline">Sign Out</button>
+        </div>
+        <form id="landing-form">
+          <div class="landing-input-group">
+            <input id="session-title" type="text" maxlength="80" placeholder="Project name (e.g., Calendar App)" autocomplete="off" />
+            <button type="submit" id="new-chat-btn" class="btn-primary">New Chat</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Past Sessions -->
+    <section class="landing-sessions hidden" id="sessions-section">
+      <h2>Recent Sessions</h2>
+      <div id="sessions-list" class="sessions-list">
+        <p class="sessions-empty">No sessions yet. Start a new chat above!</p>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="landing-features">
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <h3>Debate Room</h3>
+        <p>Real-time team chat with AI facilitation. Discuss ideas, ask questions with <strong>/ai</strong>.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📋</div>
+        <h3>PRD Factory</h3>
+        <p>AI generates per-member PRDs, contracts, and build instructions from your discussion.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💻</div>
+        <h3>Vibe Coding</h3>
+        <p>Each member gets their own module with full PRD, code editor, and file upload.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <h3>AI Tech Lead</h3>
+        <p>Automated security scans, contract verification, and integration testing.</p>
+      </div>
+    </section>
+
+    <footer class="landing-footer">
+      <p>Built for the AI Builders Hackathon · Contract-first development</p>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="landing.js"></script>
+</body>
+</html>

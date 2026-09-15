@@ -22,6 +22,61 @@
     'Let\u2019s define the problem we\u2019re solving — who is it for, and what does it save them?',
   ];
 
+  // Read session ID from URL query parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlSessionId = urlParams.get('session');
+  if (urlSessionId) {
+    localStorage.setItem('braidly.currentSession', urlSessionId);
+    // Clean URL without reload
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+  // If no session in URL and no stored session, create one
+  if (!localStorage.getItem('braidly.currentSession')) {
+    const newSid = 'session_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    localStorage.setItem('braidly.currentSession', newSid);
+  }
+
+  // Supabase client for auth tokens
+  let sb = null;
+  let sbToken = null;
+
+  // Initialize Supabase auth
+  async function initSupabase() {
+    try {
+      const res = await fetch('/api/config');
+      const cfg = await res.json();
+      if (cfg.supabase && cfg.supabase.url && cfg.supabase.anonKey) {
+        sb = window.supabase.createClient(cfg.supabase.url, cfg.supabase.anonKey);
+        const { data: { session } } = await sb.auth.getSession();
+        if (session && session.user) {
+          sbToken = session.access_token;
+          name = session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || localStorage.getItem('braidly.name') || 'Guest';
+          localStorage.setItem('braidly.name', name);
+        }
+        // Listen for auth changes
+        sb.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_OUT') {
+            sbToken = null;
+            window.location.href = '/';
+          } else if (session) {
+            sbToken = session.access_token;
+          }
+        });
+      }
+    } catch {
+      // No Supabase — continue with localStorage name
+    }
+  }
+
+  // Helper: fetch with auth header
+  function authFetch(url, opts = {}) {
+    if (sbToken) {
+      opts.headers = opts.headers || {};
+      opts.headers['Authorization'] = 'Bearer ' + sbToken;
+    }
+    return fetch(url, opts);
+  }
+
   let name = localStorage.getItem('braidly.name') || '';
   let ws = null;
   let reconnectDelay = 1000;
@@ -46,12 +101,21 @@
     connect();
   });
 
-  if (name) {
-    overlayEl.classList.add('hidden');
-    connect();
-  } else {
-    showJoin();
-  }
+  // Initialize Supabase first, then decide auth flow
+  initSupabase().then(() => {
+    if (sbToken && name) {
+      // Logged in via Supabase — skip join overlay
+      overlayEl.classList.add('hidden');
+      connect();
+    } else if (name) {
+      // localStorage name only — skip join overlay
+      overlayEl.classList.add('hidden');
+      connect();
+    } else {
+      // No auth, no name — show join overlay
+      showJoin();
+    }
+  });
 
   // ---------- connection ----------
   function setStatus(state, label) {
@@ -105,7 +169,7 @@
 
   async function loadHistory() {
     try {
-      const res = await fetch('/api/messages');
+      const res = await authFetch('/api/messages');
       const data = await res.json();
       if (data.messages) {
         messagesEl.innerHTML = '';
@@ -122,7 +186,7 @@
 
   async function loadBriefs() {
     try {
-      const res = await fetch('/api/briefs');
+      const res = await authFetch('/api/briefs');
       const data = await res.json();
       if (data.briefs && data.briefs.length > 0) {
         showWorkspace(data.analysis, data.briefs);
@@ -333,8 +397,18 @@
   clearChatBtn.addEventListener('click', async () => {
     if (!confirm('Clear all messages, briefs, and submissions? This cannot be undone.')) return;
     try {
-      const res = await fetch('/api/clear-chat', { method: 'POST' });
+      const sessionId = localStorage.getItem('braidly.currentSession') || '';
+      const res = await authFetch('/api/clear-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      });
       if (!res.ok) throw new Error('Clear failed');
+      const data = await res.json();
+      // Update to new session
+      if (data.newSessionId) {
+        localStorage.setItem('braidly.currentSession', data.newSessionId);
+      }
       // Reset local state
       messagesEl.innerHTML = '';
       workspacePanel.classList.add('hidden');
@@ -655,7 +729,7 @@
   async function fetchContract(moduleName) {
     try {
       const safeName = sanitizeModuleName(moduleName);
-      const res = await fetch('/api/contract/' + encodeURIComponent(safeName));
+      const res = await authFetch('/api/contract/' + encodeURIComponent(safeName));
       const data = await res.json();
       return data.contract ? data : null;
     } catch {
@@ -725,7 +799,7 @@
     try {
       const files = [{ path: 'index.js', content }];
       if (readme) files.push({ path: 'README.md', content: readme });
-      const res = await fetch('/api/submit', {
+      const res = await authFetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -797,7 +871,9 @@
     }
 
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const uploadHeaders = {};
+      if (sbToken) uploadHeaders['Authorization'] = 'Bearer ' + sbToken;
+      const res = await fetch('/api/upload', { method: 'POST', body: formData, headers: uploadHeaders });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
 
@@ -812,7 +888,7 @@
 
   async function loadModuleFiles(module) {
     try {
-      const res = await fetch('/api/files/' + module);
+      const res = await authFetch('/api/files/' + module);
       const data = await res.json();
       renderFileList(data.files || []);
     } catch {
@@ -841,7 +917,7 @@
     const module = codeEditor.dataset.module;
     if (!module) return;
     try {
-      const res = await fetch('/api/files/' + module + '/' + encodeURIComponent(filePath), { method: 'DELETE' });
+      const res = await authFetch('/api/files/' + module + '/' + encodeURIComponent(filePath), { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       loadModuleFiles(module);
@@ -878,7 +954,7 @@
     finalizeStatus.classList.remove('hidden');
 
     try {
-      const res = await fetch('/api/finalize', { method: 'POST' });
+      const res = await authFetch('/api/finalize', { method: 'POST' });
       const data = await res.json();
 
       if (!res.ok) {
@@ -925,7 +1001,7 @@
   // Also check on load
   async function loadReport() {
     try {
-      const res = await fetch('/api/reports');
+      const res = await authFetch('/api/reports');
       const data = await res.json();
       if (data.report) renderReport(data.report);
     } catch { /* no report yet */ }
@@ -939,7 +1015,7 @@
     integrateStatus.classList.remove('hidden');
 
     try {
-      const res = await fetch('/api/integrate', { method: 'POST' });
+      const res = await authFetch('/api/integrate', { method: 'POST' });
       const data = await res.json();
 
       if (!res.ok && !data.overall_status) {

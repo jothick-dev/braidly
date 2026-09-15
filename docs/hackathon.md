@@ -71,13 +71,13 @@ Everything below is **not built yet** — the submission is only as good as the 
 
 ## 4. MANDATORY SUBMISSION #3 — Public Source Code (GitHub)
 
+- [x] Git repository initialized (first commit `a53edb4`, 24 files, 7415 lines)
 - [ ] Create a **public** GitHub repo (e.g., `braidly`)
-- [ ] Push the full project: `PROJECT.md`, `TECH-SPEC.md`, `GOVERNANCE.md`, `checklist.md`, `hackathon.md`, all source
+- [ ] Push the full project to GitHub
 - [ ] **README.md** with: what it is, the problem, how it works, an architecture overview, setup instructions, `.env.example`, and how to run the demo "team" flow
-- [ ] **`.gitignore`** excludes: `.env`, `data/`, `node_modules/`, `.freebuff/` — **no API keys ever committed**
+- [x] **`.gitignore`** excludes: `.env`, `data/`, `node_modules/`, `.freebuff/` — **no API keys ever committed**
 - [ ] License file (MIT)
 - [ ] Code is reviewable: folder structure matches the docs, no build artifacts
-- [ ] *Note: requires `git` on your machine — install Git Bash (also fixes the missing-bash issue), or create/push via the GitHub web UI*
 
 ---
 

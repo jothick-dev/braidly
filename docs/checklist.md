@@ -101,6 +101,65 @@
 - [x] Confirmation dialog before clearing chat
 - [x] Truncated JSON recovery in `extractJSON()` — partial PRDs extracted even when models hit token limits
 
+### Landing Page (Session 21)
+- [x] Landing page entry screen (`public/landing.html`) with project branding and 5-stage pipeline display
+- [x] Name input + "New Chat" button (creates session ID, navigates to `/app`)
+- [x] Past sessions list — loaded from server, sorted newest first, click to resume
+- [x] Feature cards (Debate Room, PRD Factory, Vibe Coding, AI Tech Lead)
+- [x] Session management API (`GET /api/sessions`, `GET /api/sessions/:id`)
+- [x] Session archival — Clear Chat saves current session (messages + briefs + metadata) to `data/sessions/` before clearing
+- [x] Session ID flow — landing page generates ID, debate room reads from URL query param
+- [x] Direct navigation to `/app` auto-creates session if none in URL
+- [x] Landing page responsive CSS (dark mode, mobile-friendly)
+- [ ] Past sessions show thumbnails or summary of discussion topics
+
+### Supabase Integration (Session 22)
+- [x] Created Supabase project (braidly-prod) on supabase.com
+- [x] Created database schema with 7 tables (profiles, sessions, messages, briefs, shared_contracts, submissions, reports)
+- [x] Created `lib/supabase.js` — server-side client with service role + anon key
+- [x] Created `lib/auth.js` — auth middleware (requireAuth, optionalAuth)
+- [x] Rewrote `lib/store.js` — dual-mode storage (Supabase + JSON fallback)
+- [x] Added `/api/config` endpoint (safe: anon key only)
+- [x] Added `/api/auth/me` endpoint
+- [x] Updated landing page with Sign In / Sign Up forms
+- [x] Updated debate room with auth token on API calls
+- [x] Fixed CSP to allow Supabase CDN (`https://cdn.jsdelivr.net`)
+- [x] Fixed login null error (added null check + clear error message)
+- [x] Fixed Security Advisor warnings (SET search_path, restrict function execution)
+- [x] Fixed `/api/sessions` 401 error (requireAuth → optionalAuth)
+- [ ] Demo mode for hackathon judges (no-login access)
+- [ ] Test full flow with Supabase storage
+
+### UI Redesign (Session 23)
+- [x] Redesigned `public/index.html` — 3-column layout (People sidebar / Thread / PRD+Doc sidebar)
+- [x] Header with logo, screen switcher (Team Chat / Modules), status pill, Home link
+- [x] Left sidebar: participant list with avatars, online dots, AI badge
+- [x] Right sidebar: PRD Factory, PRD Showcase (index cards), Workspace, Integration panel
+- [x] Module Submission view: table with Person/Role/Module/Status/Submission + Integration panel
+- [x] Redesigned `public/style.css` — ink-charcoal palette, graph-paper grid, index-card rotation, IBM Plex Mono
+- [x] Rewrote `public/app.js` — screen switching, PRD Showcase, Module Submission table, all existing functionality preserved
+- [x] Vanilla HTML/CSS/JS per TECH-SPEC (zero build step, no React)
+- [ ] Polish responsive layout for mobile
+- [ ] Add inline editing for Module Submission table rows
+
+### React UI (Session 24-25)
+- [x] Created `ui/` with React + Vite + Tailwind CSS 4 + lucide-react
+- [x] Supabase browser client (`ui/src/lib/supabase.js`)
+- [x] API helper with auth token injection (`ui/src/lib/api.js`)
+- [x] WebSocket manager with auto-reconnect (`ui/src/lib/websocket.js`)
+- [x] AuthView — Sign In / Sign Up / Skip (guest mode)
+- [x] TeamChatView — 3-column layout connected to real WebSocket + API
+- [x] ModuleSubmissionView — table connected to real API data
+- [x] Vite proxy config — `/api` and `/ws` forwarded to backend (port 3000)
+- [x] End-to-end tested: Auth → Chat → AI streaming → Finalize → Modules
+
+### Sidebar + Dashboard (Session 25)
+- [x] Persistent sidebar — navigation (Home, Profile, Dashboard, Project, Team), user info, sign out, collapse
+- [x] Dashboard — welcome header, stats row (projects, messages, active, last active), new project input, activity ring, previous projects grid, feature cards, footer
+- [x] Marketing landing page — nav bar, hero (animated hex), features, about, CTA, footer
+- [x] Full navigation flow: Landing → Auth → Dashboard → Chat/Modules
+- [x] "← Home" button in TeamChatView header
+
 ## 3. Core Architecture Rules
 
 - [ ] `llm/gateway.js` — the ONE module all AI calls go through
@@ -124,7 +183,8 @@
 
 - [ ] Node 22 LTS installed
 - [ ] `package.json` with pinned versions: Express, `ws`, `multer`, `dotenv`
-- [ ] GitHub private repo for version control
+- [x] Git repository initialized (`git init`, first commit `a53edb4`, 24 files, 7415 lines)
+- [ ] GitHub public repo for hackathon submission (create + push)
 - [ ] Ollama installed + `qwen2.5-coder:3b` pulled
 - [ ] Ports: `3000` main app, `4000` mock server (proof app)
 - [ ] Git Bash / PowerShell workflow on Windows
@@ -182,6 +242,12 @@
 - [ ] Orchestrator runs whitelisted commands only; no arbitrary submitted code on host
 - [ ] No global package installs; everything inside the project folder
 - [x] **MANDATORY: Update `history.md`, `checklist.md`, and `PROJECT.md` after every session/significant change** (added as rule F5 in GOVERNANCE.md, rule 7 in instructions.md)
+- [x] **Session 26 (2026-09-02):** Documentation discipline re-confirmed as non-negotiable. User lost previous chat session, requested full project review. Session logged per mandatory rule.
+- [x] **Session 27 (2026-09-03):** React UI (`ui/`) is now the served frontend. `server.js` serves `ui/dist` at `/` and `/app` with SPA fallback; legacy `public/` UI remains as graceful fallback when the build is missing. Added `build:ui` script and `ui/dist/` to `.gitignore`. Both paths verified with curl.
+- [x] **Session 28 (2026-09-03):** Guest/demo mode for hackathon judges — "Skip for now — explore as Guest" on the auth screen (landing already had "Try Demo"); no credentials needed anywhere (all pipeline endpoints tolerate missing auth). Fixed CSP to allow Google Fonts (fonts.googleapis.com/gstatic.com) so branding loads. Verified live in browser: Landing → guest → dashboard → chat with WS presence.
+- [x] **Session 29 (2026-09-03):** Fixed "Supabase not configured" on signup — `dotenv.config()` was reading `.env` from the launch cwd instead of the script folder, so servers started from other directories ran keyless. Pinned to `__dirname` in server.js. Verified live: real signup created a Supabase account and reached the Dashboard.
+- [x] **Session 30 (2026-09-04):** Landing page full-background braid animation — new canvas component (`ui/src/BraidBackground.jsx`) with 12 brand-palette threads weaving into one rope; cinematic camera intro (macro close-up → parabolic pull-back → ambient reveal); hero text floats on top and fades in at reveal; `prefers-reduced-motion` skips the flight; old ring widget removed. Code-generated (canvas), no video.
+- [x] **Session 31 (2026-09-14):** PRD cards fixed — LLM returned PascalCase keys (`PRD`, `BuildInstructions`, `DefinitionOfDone`) while frontend expected snake_case; user stories are objects not strings; BuildInstructions keys differ from schema. Fixed by normalizing both formats, generic key iteration for BuildInstructions, object-format support for stories/criteria/DOD. Verified: new bundle served, PRD cards expandable with full content.
 
 ## 10. Failure-Mode Governance (from the two vibe-coding research docs → `GOVERNANCE.md`)
 
@@ -245,6 +311,47 @@
 - [ ] **Fork** (only after funding/team/profits): Theia over Code OSS, re-hosts the same core
 - [ ] Sequencing rule: prove the loop in the browser first; wrap in Electron only when the
       pipeline works; build the extension after validation
+
+
+
+### Shareable Links (Session 36)
+- [x] Session-scoped WebSocket — broadcast only to same-session members
+- [x] session.join handler — loads existing messages, sends session.history
+- [x] GET /api/sessions/:id/messages endpoint
+- [x] URL param auto-join — ?session=<id> bypasses landing page
+- [x] Share button — copies session URL to clipboard with visual feedback
+- [x] Reconnect preserves sessionId
+
+### Dashboard/Project Tabs (Session 35)
+- [x] Dashboard tab shows 'under construction' placeholder
+- [x] Project tab shows 'under construction' placeholder
+- [x] Home tab still shows real DashboardView
+
+### PRD Copy Button (Session 32)
+- [x] Copy button on each PRD card header
+- [x] Formats full PRD as plain text
+- [x] Visual feedback (clipboard → green checkmark for 2s)
+
+### Integration Report Fixes (Sessions 33-34)
+- [x] Fixed status field mapping (overall_status vs status)
+- [x] Fixed summary field mapping (summary.passed vs passed)
+- [x] Added warnings detail display with rule codes
+
+
+### Three.js Braid Hero Background (Session 37)
+- [x] Replaced 2D canvas with full Three.js scene (TubeGeometry + bloom)
+- [x] 4-phase perpetual cycle: Source → Burst → Vortex → Braid → Fade (seamless loop)
+- [x] 26 strands in 3 color groups with noise-driven organic motion
+- [x] UnrealBloomPass for neon glow effect
+- [x] Energy pulses traveling along strands during braid phase
+- [x] InstancedMesh bokeh particles for atmosphere
+- [x] Camera choreography: macro → pull-back → push-in → lateral drift
+- [x] HUD overlay: grid lines + monospace glyphs (DOM/CSS, not 3D)
+- [x] Text-contrast scrim for hero text readability
+- [x] prefers-reduced-motion fallback (static gradient, no canvas)
+- [x] Lazy-loaded via React.lazy + Suspense (Three.js doesn't block first paint)
+- [x] Props: strandCount, palette, speed
+- [x] body transparent + app-bg class for non-landing pages
 
 ---
 

@@ -1,7 +1,7 @@
 # Braidly — Collaborative AI Vibe-Coding Workplace
 
 > **Living document.** Read this file at the start of every session to pick up where we left off.
-> Last updated: Session 20 (2026-08-26)
+> Last updated: Session 37 (2026-09-16)
 
 ---
 
@@ -192,7 +192,7 @@ project only through what's written here + the files in the folder.
       structured output chain
 - [x] **Stage 4 — File Submission (built):** multer upload, drag-drop, file list/delete,
       folder-per-module storage, WebSocket broadcast for file sync
-- [ ] **Landing Page:** entry page + new chat + past sessions list (decided 2026-08-23)
+- [x] **Landing Page:** entry page + new chat + past sessions list (built 2026-08-26, Session 21). Landing page at `/`, debate room at `/app?session=<id>`. Past sessions saved to `data/sessions/`
 - [x] **Stage 5 — AI Tech Lead (built):** orchestrator module verifies modules against
       contracts, runs security scans (A-rules, C-rules, B-rules), runs contract tests,
       AI fix loop (≤3 attempts, minimal-diff), integration report with pass/fail/fixed
@@ -319,6 +319,55 @@ project only through what's written here + the files in the folder.
 - **2026-08-24:** **MAX_HISTORY_MESSAGES explained.** `MAX_HISTORY=20` in server.js limits
   AI context to last 20 messages when `/ai` is called. Keeps within Groq's 8K token limit.
   Configurable via `MAX_HISTORY_MESSAGES=50` in `.env` for more context.
+- **2026-08-26:** **Hackathon PPT created.** `docs/ppt.md` with 10-slide deck + 2-min demo
+  script. Git repo initialized, first commit `a53edb4` (24 files, 7,415 lines).
+- **2026-08-26:** **Landing Page built** (Session 21). Entry screen at `/`, debate room at
+  `/app?session=<id>`, past sessions list, session archival on clear.
+- **2026-08-27:** **Supabase integration** (Session 22). Auth (email/password), 7 tables
+  with RLS, dual-mode storage (Supabase + JSON fallback), CSP fix for CDN.
+- **2026-08-29:** **Complete UI redesign** (Session 23). 3-column Team Chat, Module
+  Submission table, graph-paper grid, index-card PRD showcase, ink-charcoal palette.
+- **2026-08-30:** **React UI built** (Sessions 24–25). `ui/` folder with Vite + Tailwind,
+  TeamChatView, ModuleSubmissionView, DashboardView, LandingView, AuthView connected
+  to real WebSocket + API + Supabase.
+- **2026-09-02:** **Session 26: Project review + documentation discipline.** Lost chat
+  session, user requested full project review to recover context. Read all key files,
+  provided comprehensive summary. User re-confirmed mandatory documentation rule:
+  every session must be logged in history.md, checklist.md, PROJECT.md. No exceptions.
+- **2026-09-03:** **Session 27: React UI is now the face.** Server serves the built
+  React app (`ui/dist`) at `/` and `/app` with an SPA fallback for client-side views;
+  legacy `public/` UI kept as graceful fallback when the build is missing (warns at
+  startup). Added `npm run build:ui`; `ui/dist/` gitignored. Verified both paths.
+  Frontend is now one server, one port — no separate Vite dev server needed.
+- **2026-09-03:** **Session 28: Guest/demo mode for judges.** "Skip for now —
+  explore as Guest" button added to the auth screen (landing already had "Try Demo");
+  both enter guest mode with no credentials — all pipeline endpoints tolerate missing
+  auth. Also allowlisted Google Fonts domains in the CSP (A8/A9) so the IBM Plex Mono /
+  Inter branding loads. Verified live: Landing → guest → dashboard → chat (WS).
+- **2026-09-03:** **Session 29: Signup fix.** User hit "Supabase not configured. Add
+  keys to .env" on Sign Up. Root cause: `dotenv.config()` reads `.env` from the
+  process cwd, so a server launched from any other directory ran keyless — `.env`
+  itself was fine. Pinned dotenv to the script's folder
+  (`path: path.join(__dirname, '.env')`) in `server.js`. Verified: `/api/config`
+  returns the anon key, and a real signup created a Supabase account → Dashboard.
+- **2026-09-04:** **Session 30: Full-background braid animation.** The landing
+  page's right-side ring widget became a full-screen canvas animation of 12 brand-
+  colored threads (accent/ai/green/amber) weaving into one thicker rope, with a
+  cinematic camera intro — macro close-up on a thread, parabolic pull-back, ambient
+  wide reveal with the hero text floating on top. Code-generated (canvas), not
+  video: KBs vs MBs, sharp on projectors, seamless loop, exact brand colors. New
+  `ui/src/BraidBackground.jsx`; `prefers-reduced-motion` skips the flight; hero
+  text fades in at the reveal. Verified live in preview (frames animating, console
+  clean).
+- **2026-09-14:** **Session 31: PRD cards fixed — PascalCase vs snake_case.**
+  After finalize, PRD Showcase cards only showed "Module brief" with no content.
+  Root cause: LLM returns PascalCase keys (`PRD`, `BuildInstructions`) while
+  frontend expected snake_case (`prd`, `build_instructions`); user stories are
+  objects (`{ as_a, i_want, so_that }`) not strings; BuildInstructions keys
+  differ from schema. Fixed by normalizing both formats and making rendering
+  generic (iterates over whatever keys the LLM returns). Added support for
+  `title`, `description`, `objectives`, and object-format stories/criteria/DOD.
+  Verified: new bundle served, PRD cards expandable with full content.
 
 ## 12. The Handoff Doc (`instructions.md`)
 
@@ -326,3 +375,30 @@ project only through what's written here + the files in the folder.
 **not** the PRD/Build-Instructions the platform will generate for its users — those are
 product output for the team members; `instructions.md` is the meta-brief for whoever
 builds Braidly itself in any tool. Keep the two clearly separated in this repo.
+
+## 13. Three.js Braid Hero Background (Session 37)
+
+The landing page hero background was rewritten from a 2D canvas animation to a full
+Three.js scene. The animation follows a reference clip's visual language: glowing
+colored strings converge from a point, burst outward past camera, swirl into a
+vortex, then braid into a thick twisted cable with traveling energy sparks.
+
+**4-phase perpetual cycle** (14s per cycle, seamless loop):
+- Source (0–15%): braided bundle twists to a knot, thin filaments fan out
+- Burst (15–40%): 26 strands spawn and shoot outward past camera
+- Vortex (40–65%): strands curl into slow rotating spiral
+- Braid (65–90%): strings consolidate into thick cable, energy pulses travel along strands
+- Fade (90–100%): crossfade back to source
+
+**Rendering stack:**
+- TubeGeometry per strand (CatmullRomCurve3), AdditiveBlending, ACES filmic tone mapping
+- UnrealBloomPass (strength 1.5, radius 0.4, threshold 0.2) for neon glow
+- 26 strands in 3 color groups: green (#2FE58A), blue/cyan (#2FB8FF), dark (#16232A)
+- 120 InstancedMesh bokeh particles
+- DOM/CSS HUD overlay (grid lines + monospace glyphs)
+- Radial gradient scrim for text readability
+
+**Performance:** DPR capped at 2, pauses on visibilitychange, prefers-reduced-motion
+fallback (static gradient, no canvas), lazy-loaded via React.lazy.
+
+**Props:** strandCount, palette, speed — trivially tweakable without touching render logic.

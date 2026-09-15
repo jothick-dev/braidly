@@ -30,11 +30,10 @@ it needs explicit user approval.
 
 | Item | Choice | Why |
 |------|--------|-----|
-| Framework | **None — vanilla HTML/CSS/JS** | Zero build step = zero toolchain breakage |
+| Framework | **React + Vite + Tailwind** (`ui/`) — the served frontend since Session 27 | Legacy `public/` vanilla UI kept as fallback when `ui/dist` is missing |
 | Real-time chat | Native browser **WebSocket** API | Built into every browser, no library needed |
-| Served by | Express `static` middleware | One server serves UI + API |
-| Files | `public/index.html`, `public/style.css`, `public/app.js` | Single-page app, no bundler |
-| Later upgrade | React + Vite (only after MVP is proven) | Keep it out until the pipeline works |
+| Served by | Express `static` middleware serving `ui/dist/` + SPA fallback | One server serves UI + API; rebuild with `npm run build:ui` |
+| Files | `ui/src/*.jsx` built to `ui/dist/` | Bundled SPA; `/` and `/app` both serve `ui/dist/index.html` |
 | Delivery surface | **Electron desktop app** embedding Monaco (primary); **VS Code extension** (upgrade); IDE fork only post-funding | Core + thin shells — pipeline lives in UI-independent modules |
 
 ## 3. Backend

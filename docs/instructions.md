@@ -47,10 +47,9 @@ AI/                      ← this folder (the whole project)
 ├── lib/
 │   ├── security.js      ← CSP, validation, rate limiting
 │   └── store.js         ← JSON persistence with write queue
-├── public/              ← frontend (vanilla HTML/CSS/JS)
-│   ├── index.html
-│   ├── style.css
-│   └── app.js
+├── ui/                  ← frontend (React + Vite + Tailwind) — THE face of Braidly
+│   └── src/              (build with `npm run build:ui` → ui/dist/)
+├── public/              ← legacy vanilla frontend — fallback if ui/dist is missing
 ├── test/
 │   └── smoke.js         ← automated smoke test
 ├── data/                ← runtime data (gitignored)
@@ -58,9 +57,12 @@ AI/                      ← this folder (the whole project)
 └── .freebuff/           ← tool-internal state — DO NOT TOUCH, DO NOT DELETE
 ```
 
-**As of now: Stage 1 (the Debate Room) is built and tested.** `npm start` runs it on
-http://localhost:3000 (needs Node 22; installed at `C:\Users\meher\nodejs` — add it to
-PATH). Next: add a key to `.env` for live AI replies, then Stage 2 (PRD Factory).
+**As of now (Session 27): all 5 stages are built and the React UI is the face.**
+`npm start` runs the server on http://localhost:3000 (needs Node 22; installed at
+`C:\Users\meher\nodejs` — add it to PATH). The server serves `ui/dist/` (built via
+`npm run build:ui`) at `/` and `/app`; if the build is missing it falls back to the
+legacy `public/` UI with a startup warning. NOTE: npm is NOT on PATH — run npm via
+`C:\Users\meher\nodejs\node.exe C:\Users\meher\nodejs\node_modules\npm\bin\npm-cli.js`.
 
 ## 3. Golden rules (never violate these — they protect the app)
 
