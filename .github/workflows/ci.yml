@@ -25,7 +25,11 @@ jobs:
       - name: Install backend deps
         run: npm ci
 
-      # Frontend deps + Vite production build. This is the real build gate.
+      # Frontend deps — this is not a workspace, so ui/ needs its own install.
+      - name: Install frontend deps
+        run: npm ci --prefix ui
+
+      # Vite production build. This is the real build gate.
       - name: Build UI
         run: npm run build:ui
 
