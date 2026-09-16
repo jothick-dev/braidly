@@ -1,5 +1,7 @@
 # ⬡ Braidly
 
+[![CI](https://github.com/jothick-dev/braidly/actions/workflows/ci.yml/badge.svg)](https://github.com/jothick-dev/braidly/actions/workflows/ci.yml)
+
 **From idea to integrated code — a team argues, AI plans, humans code, AI verifies.**
 
 Braidly is a collaborative AI workspace for small teams. Everyone discusses the

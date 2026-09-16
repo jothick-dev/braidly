@@ -30,12 +30,13 @@ ws.on('message', (raw) => {
     const me = msg.members.find((m) => m.name === 'SmokeBot');
     if (me) {
       steps.push('presence: joined as SmokeBot');
-      ws.send(JSON.stringify({ type: 'chat.message', text: 'hello braidly', clientId }));
+      // '/ai' prefix triggers the facilitator; without API keys the server must
+      // degrade gracefully (offline notice), with keys it must complete a reply.
+      ws.send(JSON.stringify({ type: 'chat.message', text: '/ai hello braidly', clientId }));
     }
   }
   if (msg.type === 'chat.message' && msg.message && msg.message.clientId === clientId) {
-    steps.push('chat: echo received');
-    if (msg.message.text !== 'hello braidly') {
+    steps.push('chat: echo received');        if (msg.message.text !== '/ai hello braidly') {
       console.error('FAIL: echo text mismatch');
       process.exit(1);
     }
@@ -56,8 +57,12 @@ ws.on('message', (raw) => {
 function finish() {
   clearTimeout(timeout);
   ws.close();
-  const missing = ['presence: joined as SmokeBot', 'chat: echo received', 'ai: graceful degradation notice'];
-  const ok = missing.every((s) => steps.includes(s));
+  const aiStepOk =
+    steps.includes('ai: graceful degradation notice') || steps.includes('ai: reply completed');
+  const ok =
+    steps.includes('presence: joined as SmokeBot') &&
+    steps.includes('chat: echo received') &&
+    aiStepOk;
   console.log('\nsteps:', steps.join(' | '));
   console.log(ok ? 'PASS' : 'FAIL');
   process.exit(ok ? 0 : 1);

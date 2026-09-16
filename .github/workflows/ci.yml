@@ -1,0 +1,48 @@
+# CI — build the UI, boot the server, run the WebSocket smoke test.
+# Gives judges (and us) a green check that the repo actually builds and runs.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ui/package-lock.json
+
+      # Root deps (express, ws, supabase, ...) — needed by server.js and the smoke test.
+      - name: Install backend deps
+        run: npm ci
+
+      # Frontend deps + Vite production build. This is the real build gate.
+      - name: Build UI
+        run: npm run build:ui
+
+      # Boot the real server (no env vars needed: storage falls back to local
+      # JSON and the AI gateway degrades gracefully) and run the WebSocket
+      # smoke test against it: join → presence → chat echo → AI fallback.
+      - name: Boot server & run WebSocket smoke test
+        run: |
+          node server.js &
+          npx --yes wait-on http://localhost:3000/api/health --timeout 30000
+          node test/smoke.js
+
+      # The Vite build emits 500kB+ chunks (Three.js) — fail the build if a
+      # future change makes any chunk wildly bigger than today's baseline.
+      - name: Check bundle size budget
+        run: |
+          LIMIT_KB=800
+          BIGGEST=$(find ui/dist/assets -name '*.js' -exec du -k {} + | sort -rn | head -1 | cut -f1)
+          echo "largest chunk: ${BIGGEST} kB (limit ${LIMIT_KB} kB)"
+          [ "$BIGGEST" -le "$LIMIT_KB" ]
