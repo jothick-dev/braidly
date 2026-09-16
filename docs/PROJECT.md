@@ -412,9 +412,11 @@ upgrades (`/ws`), its function filesystem is read-only/ephemeral (breaks every
 
 - **Vercel** (free) — static React UI built from `ui/`; `/api/*` reverse-proxied
   to Railway via a build-time rewrite so calls stay same-origin (no CORS).
-  Config lives in `ui/vercel.ts` (programmatic, uses `@vercel/config`) because
-  static `vercel.json` cannot read env vars — the Railway URL must come from the
-  `BACKEND_URL` env var set in Vercel project settings.
+  Config lives in `ui/vercel.json` (static): the `/api/:path*` rewrite points at
+  the Railway domain, which is stable once generated. (A `vercel.ts`/
+  `@vercel/config` variant was tried in Session 39 and dropped — it needs a TS
+  toolchain the project doesn't have, for a benefit a one-line placeholder
+  replace doesn't justify.)
 - **Railway** (hobby) — the existing Express + WebSocket + LLM-gateway monolith,
   essentially unchanged. WebSockets work natively; a persistent volume mounted
   at `/app/data` keeps sessions/briefs/submissions/uploads across deploys.
@@ -435,8 +437,9 @@ upgrades (`/ws`), its function filesystem is read-only/ephemeral (breaks every
    `PUBLIC_WS_URL=wss://<railway-domain>` (do NOT set `PORT`/`BRAIDLY_PORT`).
 4. Railway → Volume → mount at `/app/data`; healthcheck path `/api/health`;
    Networking → Generate Domain (this domain feeds steps 3 and 5).
-5. Vercel → import same repo → Root Directory `ui` → env var
-   `BACKEND_URL=https://<railway-domain>` → deploy.
+5. Vercel → import same repo → Root Directory `ui` → deploy → then put the
+   Railway domain into `ui/vercel.json` (replace `RAILWAY-DOMAIN-HERE`), commit
+   and push — Vercel redeploys automatically on push.
 6. Supabase → Authentication → URL Configuration → add the Vercel (and Railway)
    domains to Site URL / Redirect URLs.
 7. Smoke test: `curl https://<vercel>/api/health`; landing renders; WS connects

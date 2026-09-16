@@ -1377,7 +1377,7 @@ Landing Page → Login/Sign Up → Dashboard (with persistent sidebar)
 - **Railway** ($5/mo hobby): existing Express + WebSocket + LLM gateway monolith unchanged, WebSockets native, persistent volume mounted at `/app/data`
 
 **Changes:**
-- **`ui/vercel.ts`** (new) — programmatic Vercel config using `@vercel/config`: reads `BACKEND_URL` env var at build time for the API rewrite (`/api/:path* → $BACKEND_URL/:path*`), SPA fallback for all other routes, immutable caching for hashed `/assets/*`. Chosen over `vercel.json` because static JSON can't read env vars (Railway domain would be hardcoded)
+- **`ui/vercel.json`** (Session 39) — static Vercel config: `/api/:path*` rewrite to the Railway domain (placeholder `RAILWAY-DOMAIN-HERE` until Railway generates it), SPA fallback, immutable caching for hashed `/assets/*`. A `vercel.ts` using `@vercel/config` was tried first and dropped: it requires a TypeScript toolchain the project doesn't have, and a static one-line domain replace is simpler
 - **`package.json`** — added root `build` script (`cd ui && npm ci && npm run build`) for Railway's Nixpacks builder
 - **`server.js`** — `/api/config` now returns `wsUrl` (from `PUBLIC_WS_URL` env, normalized to end in `/ws`); added `app.set('trust proxy', 1)` so `req.ip` resolves real client IPs behind the Vercel/Railway proxy hops (keeps per-user rate limiting honest)
 - **`ui/src/lib/supabase.js`** — `initSupabase()` stashes `config.wsUrl` into `window.__BRAIDLY_WS__` (reuses the `/api/config` fetch it already does)

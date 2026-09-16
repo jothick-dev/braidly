@@ -206,12 +206,12 @@
 ## 8. Deployment & Post-MVP (NOT in the initial MVP build)
 
 ### Session 38 (2026-09-16): Deployment prep done — Vercel + Railway split
-- [x] `ui/vercel.ts` — build-time `BACKEND_URL` rewrite (API proxied, same-origin), SPA fallback, asset caching
+- [x] `ui/vercel.json` — `/api/*` rewrite to Railway (same-origin), SPA fallback, asset caching (domain placeholder: `RAILWAY-DOMAIN-HERE`)
 - [x] Root `build` script (`cd ui && npm ci && npm run build`) for Railway Nixpacks
 - [x] `PUBLIC_WS_URL` published via `/api/config`; client connects WebSocket directly to Railway
 - [x] `trust proxy` so rate limiting works behind reverse proxies
 - [ ] Push to GitHub → Railway service (volume at `/app/data`, env vars, healthcheck `/api/health`)
-- [ ] Vercel project (root dir `ui`) with `BACKEND_URL` env var
+- [ ] Vercel project (root dir `ui`), then replace `RAILWAY-DOMAIN-HERE` in `ui/vercel.json` with the real Railway domain and push
 - [ ] Supabase auth redirect URLs include Vercel + Railway domains
 - [ ] End-to-end smoke test on deployed URLs (chat, share link, finalize, upload)
 
